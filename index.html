@@ -1,0 +1,100 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>USD/JPY AI風予測チャート</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <h2>USD/JPY AI予測チャート（ルールベース強化）</h2>
+  <canvas id="fxChart" width="800" height="400"></canvas>
+
+  <script>
+    async function fetchFXData() {
+      const res = await fetch('https://api.exchangerate.host/timeseries?start_date=2024-04-01&end_date=2024-04-10&base=USD&symbols=JPY');
+      const data = await res.json();
+      const dates = Object.keys(data.rates);
+      const prices = dates.map(date => data.rates[date]['JPY']);
+
+      const predictedLabels = ["T+1", "T+2", "T+3", "T+4", "T+5"];
+      const predicted = [];
+
+      const lastPrice = prices[prices.length - 1];
+      const lastDiff = prices[prices.length - 1] - prices[prices.length - 2];
+
+      const lastDate = new Date(dates[dates.length - 1]);
+      let tempPrice = lastPrice;
+
+      for (let i = 1; i <= 5; i++) {
+        const futureDate = new Date(lastDate);
+        futureDate.setDate(futureDate.getDate() + i);
+        const weekday = futureDate.getDay();
+
+        let adj = lastDiff;
+        if (weekday === 1) adj -= 0.1;
+        if (weekday === 5) adj -= 0.2;
+
+        const fakeEventDate = new Date("2024-04-12");
+        if (futureDate.toDateString() === fakeEventDate.toDateString()) {
+          adj += 0.3;
+        }
+
+        const randomSpice = (Math.random() - 0.5) * 0.1;
+        adj += randomSpice;
+
+        tempPrice += adj;
+        predicted.push(parseFloat(tempPrice.toFixed(3)));
+      }
+
+      drawChart(dates, prices, predictedLabels, predicted);
+    }
+
+    function drawChart(labels, actualPrices, predLabels, predPrices) {
+      const ctx = document.getElementById('fxChart').getContext('2d');
+      new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: [...labels, ...predLabels],
+          datasets: [
+            {
+              label: '実際の価格',
+              data: [...actualPrices, null, null, null, null, null],
+              borderColor: 'blue',
+              borderWidth: 2,
+              tension: 0.3
+            },
+            {
+              label: '予測ライン（AI風ルール）',
+              data: [...Array(actualPrices.length).fill(null), ...predPrices],
+              borderColor: 'red',
+              borderDash: [5, 5],
+              borderWidth: 2,
+              tension: 0.3
+            }
+          ]
+        },
+        options: {
+          responsive: false,
+          scales: {
+            y: {
+              title: {
+                display: true,
+                text: '円/ドル'
+              }
+            },
+            x: {
+              title: {
+                display: true,
+                text: '日付 + 予測'
+              }
+            }
+          }
+        }
+      });
+    }
+
+    fetchFXData();
+  </script>
+</body>
+</html>
